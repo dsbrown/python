@@ -41,10 +41,10 @@ parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", defau
 #
 ####################################################################################
 # MULTIPLE FILENAME METHOD 1 - use this to call files with -f example: arg_parse.py  -f foo.txt bar.txt fu.txt
-#parser.add_argument("-f", "--files", nargs="+", dest="mfiles", help="file names to processed seperated by spaces")
+#parser.add_argument("-f", "--files", nargs="+", dest="mfiles", help="file names to processed separated by spaces")
 
 # MULTIPLE FILENAME METHOD 2 - use this to call files on the end of the command line example: arg_parse.py foo.txt bar.txt fu.txt
-#parser.add_argument(nargs="+", dest="mfiles", help="file names to processed seperated by spaces")
+#parser.add_argument(nargs="+", dest="mfiles", help="file names to processed separated by spaces")
 
 # MULTIPLE FILENAME METHOD 3 - use this to call files on the end of the command line example: arg_parse.py  -f foo.txt -f bar.txt -f fu.txt 
 #parser.add_argument('-f', '--file', dest="mfiles", action='append', help="file names to processed in this format: -f file1 -f file2 -f file3")
