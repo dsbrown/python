@@ -117,7 +117,7 @@ args = parser.parse_args()
 
 #Single file name demonstration method 1 & 2
 #print(args.inputfile)
-#for mfile in args.mfiles
+#for mfile in args.mfiles:
 #	print("filename:{}".format(mfile))
 
 # Demonstration of stdin/stdout - Multi file name method 4
