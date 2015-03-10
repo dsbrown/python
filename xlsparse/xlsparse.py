@@ -6,7 +6,7 @@
 # 							CSV Parsing Program
 #							Early Demonstration
 # Description:
-# Open and parse csv files
+# Open and parse xls files
 #
 # Author: David S. Brown
 # Last Major Change: 15 November 2014
@@ -15,12 +15,12 @@
 
 import argparse
 import sys
-import csv
+import xlrd
 
-parser = argparse.ArgumentParser(description='Parse CSV files',
-	#epilog="to be used only for good",
-	#prefix_chars='-+',
-	)
+parser = argparse.ArgumentParser( description='''
+						Demonstration of xlrd reading a excel worksheet
+						''',
+						)
 
 ####################################################################################
 #
@@ -29,53 +29,16 @@ parser = argparse.ArgumentParser(description='Parse CSV files',
 ####################################################################################
 
 # Count of verbose flags such as: arg_parse.py -v, arg_parse.py -vv, arg_parse.py -vvv, etc
-parser.add_argument("-v", "--verbose", action="count", default=0, help="increase output verbosity")
+parser.add_argument("-v", "--verbose", action="count", default=0, help="increase output verbosity as in -vvv")
 # a numeric debug level as in arg_parse.py -D 3
 parser.add_argument("-D", "--debug", type=int, default=0, help="Set integer debug level from 0-9 as: -D 3")
-parser.add_argument('-i', '-interactive', dest="interactive", action="store_true", default=False, 
-	help="This will output helpful information about the file its processing and ask if you want to continue, the default is non-interactive",
-	)
-
-# Files to open, one by one as in csvparse.py -f foo.txt bar.txt fu.txt 
-parser.add_argument("-f", "--files", nargs="+", dest="mfiles", help="file names to open separated by spaces")
-
-# You may optionally change the delimeter and quote character
-parser.add_argument('-d', '-delimiter', default=",", help="Optionally specify the field separation delimiter used, the default is ','")
-parser.add_argument('-q', '-quote_delimiter', default='"', help="Optionally specify the quote delimiter that is being used, the default is \"")
 
 
-def query_yes_no(question, default="yes"):
-    """Ask a yes/no question via raw_input() and return their answer.
-    
-    "question" is a string that is presented to the user.
-    "default" is the presumed answer if the user just hits <Enter>.
-        It must be "yes" (the default), "no" or None (meaning
-        an answer is required of the user).
-
-    The "answer" return value is one of "yes" or "no".
-    """
-    valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
-             "no":"no",     "n":"no"}
-    if default == None:
-        prompt = " [y/n] "
-    elif default == "yes":
-        prompt = " [Y/n] "
-    elif default == "no":
-        prompt = " [y/N] "
-    else:
-        raise ValueError("invalid default answer: '%s'" % default)
-
-    while 1:
-        sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
-        if default is not None and choice == '':
-            return default
-        elif choice in valid.keys():
-            return valid[choice]
-        else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "\
-                             "(or 'y' or 'n').\n")
-
+# File to open, and optional worksheet to read
+parser.add_argument("-f", "--file", nargs="?", dest="mfile", required=True, 
+					help="Excel Workbook to open")
+parser.add_argument("-s", "--sheet", nargs="?", dest="wsheet", default=None,
+					help="Worksheet name to read, none for first worksheet")
 
 
 ####################################################################################
@@ -87,43 +50,51 @@ def query_yes_no(question, default="yes"):
 args = parser.parse_args()
 
 if args.debug >= 2: print("args: ", args)
-
 #
-# Open files and if interactive examine the file to see if the header is present
+# Open XLS file and print information about it
 #
-filesProcessed = []
-filesSkipped = []
-for mfile in args.mfiles:
-	if (args.debug >= 1) or (args.verbose >=1):
-		print("filename:{}".format(mfile))
-	f = open(mfile, 'rU')
-	line = f.readline()
-	#line=line.strip()
-	#line=line.split(",")
-	line=line.strip().split(",")
-	#s="First line of the file '" + str(mfile) + "' has " + str(len(line)) + " columns which are:"
-	#print(s)
+if (args.debug >= 1) or (args.verbose >=1):
+	print("filename:{}".format(args.mfile))
 
-	if args.interactive >= 1:
-		print("First line of the file '" + str(mfile) + "' has " + str(len(line)) + " columns which are:")
-		print("{}".format(line))
-		answer=query_yes_no("Is this the csv file header?",default="yes")
-		if args.debug >= 2: print("{}".format(answer))
-		if answer is "no":
-			print("skipping")
-			filesSkipped.append(mfile)
-			continue
+book = xlrd.open_workbook(args.mfile)
 
-	#
-	#Open CSV file
-	f.seek(0)
-	csv_f = csv.reader(f)
-	for row in csv_f:
-	  print row[2]
+if (args.debug >= 1) or (args.verbose >=1):
+	print "Number of worksheets: " + str(book.nsheets)
+	print "Sheets: " + str(book.sheet_names())
 
-	filesProcessed.append(mfile)
+if args.wsheet == None:
+	sheet = book.sheet_by_index(0)
+else:
+	sheet = book.sheet_by_name(args.wsheet)
 
-if args.interactive >= 1:
-	print("Files procesed: " + str(filesProcessed))
-	print("Files skipped: " + str(filesSkipped))
+if (args.debug >= 1) or (args.verbose >=1):
+	print("Using:{}".format(sheet))
 
+# read a row
+print "Header of worksheet (" + args.wsheet + "): " + str(sheet.row_values(0))
+
+# read a cell
+cell = sheet.cell(0,0)
+print "First Cell Cell (" + str(cell) + ") .value:" + str(cell.value)
+
+# read a row slice
+print "This is a row slice from row 0 -> starting at 0 at 2", 
+print sheet.row_slice(rowx=0, start_colx=0, end_colx=2)
+
+keys = sheet.row_values(0)
+
+###
+num_rows = sheet.nrows -1
+num_cells = sheet.ncols -1
+curr_row = 0
+while curr_row < num_rows:
+	curr_row += 1
+	row = sheet.row(curr_row)
+	print 'Row:', curr_row
+	curr_cell = -1
+	while curr_cell < num_cells:
+		curr_cell += 1
+		# Cell Types: 0=Empty, 1=Text, 2=Number, 3=Date, 4=Boolean, 5=Error, 6=Blank
+		cell_type = sheet.cell_type(curr_row, curr_cell)
+		cell_value = sheet.cell_value(curr_row, curr_cell)
+		print '	', cell_type, ':', cell_value
