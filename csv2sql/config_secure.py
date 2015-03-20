@@ -3,7 +3,7 @@ db_name = "ipsgolog" # both name of RDS server and mysql database
 db_size = 5 #GB
 db_machine = 'db.m1.small'
 db_user="ipsgo"
-db_password = "45678"
+db_password = "sdfghjk"
 db_instance= "ipsgopdxmysql"
 db_name = "CoLo_db"
 db_sg_name = 'ipsgolog'
@@ -49,7 +49,6 @@ SiteTbl_desc={
   'TypeOther' : 'INT',
   'LSEvents' : 'INT',
   'SiteUUID' : 'VARCHAR',
-  'VendorSitePostalCode' : 'VARCHAR'
 }
 
 
@@ -109,7 +108,7 @@ AssessmentResultsTbl_desc={
   'IPSGOSelect' : 'INT',
   'BizDevSelect' : 'INT',
   'AssessmentGUID' : 'VARCHAR',
-  'SiteUUID' : 'VARCHAR',
+  'SiteUUID' : 'INT',
 }
 
 

@@ -24,15 +24,21 @@ cursor = mydb.cursor()
 query = "SELECT * FROM SiteTbl"
 
 cursor.execute(query)
-print "Site Table"
+print "SiteTbl Table"
 row = cursor.fetchone()
 while row is not None:
+    print "------------------------------------------------------------------"
     print (row)
     row = cursor.fetchone()
- 
+
+print "======================================================================"
 print "Assessment Table"
-query = "SELECT * FROM AssessmentTbl"
+query = "SELECT * FROM AssessmentResultsTbl"
+cursor.execute(query)
+print "AssessmentResultsTbl Table"
+row = cursor.fetchone()
 while row is not None:
+    print "------------------------------------------------------------------"
     print (row)
     row = cursor.fetchone()
 

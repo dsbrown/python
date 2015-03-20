@@ -19,7 +19,8 @@
 # 
 #
 # Author: David S. Brown
-# v1.0  DSB     Create csv2sql
+# v1.0  DSB      7 Mar 2015     Create csv2sql
+# v1.1  DSB     18 Mar 2015     Modified to be simplier, doesn't use as complex data structure
 #
 ####################################################################################
 
@@ -34,10 +35,6 @@ import time
 import logging, logging.config
 from datetime import date, datetime, timedelta
 logging.config.dictConfig(config.LOGGING)
-
-
-
-
 
 
 parser = argparse.ArgumentParser(
@@ -61,6 +58,9 @@ parser.add_argument("-f", "--files", nargs="+", dest="mfiles", help="file names 
 parser.add_argument('-d', '-delimiter', default=",", help="Optionally specify the field separation delimiter used, the default is ','")
 parser.add_argument('-q', '-quote_delimiter', default='"', help="Optionally specify the quote delimiter that is being used, the default is \"")
 
+parser.add_argument('--overwrite_site', action='store_true', default=False, help="If it encounters a duplicate site entry it will overwrite it with the data in the csv file. This is dangerious use with care.")
+parser.add_argument('--overwrite_assessment', action='store_true', default=False, help="If it encounters a duplicate assessment entry it will overwrite it with the data in the csv file. This is dangerious use with care.")
+
 # Prints help if no arguments
 if len(sys.argv)==1:
     parser.print_help()
@@ -71,14 +71,13 @@ if len(sys.argv)==1:
 #
 ####################################################################################
 
-# Looks at a string and tries to interpret if it is an INT, FLOAT or STR
+# is_it_a_number - Looks at a string and tries to interpret if it is an INT, FLOAT or STR
 def is_it_a_number(text):
     try:
         int(text)
         return 'INT'
     except ValueError:
         pass
-
     try:
         float(text)
         return 'FLOAT'
@@ -86,73 +85,134 @@ def is_it_a_number(text):
         pass
     return 'STR'
 
-# data is an array of dicts, need to walk through the arrays printing each dict
-def sql_insert_statement(table,d):
-    sql_keys ="INSERT INTO "+table+" ("
-    sql_data = "Values ("
-    for key in d.keys():
-        sql_keys+=key   
-        sql_data+="'"+str(d[key])+"'"
+# sql_action_statement - build SQL statement to put data into table
+#   table is the SQL table to be effected
+#   d data is a dictionary hash, walk through it and build SQL statement
+#   action is 'INSERT' or 'REPLACE' depending on the desired side effect
+#   INSERT is for new entries and will error if the entry exists
+#   REPLACE will UPDATE an existing entry by replacing all matching fields
+#sql_action_statement("SiteTbl","REPLACE",config.SiteTbl_desc,row)
+def sql_action_statement(table,action,tbl_desc,d):
+    e=valid_dictionary(d,tbl_desc)
+
+    sql_preamble = ""
+    sql_postscript = ""
+    sql_keys =" ( "
+    sql_data = " Values ("
+    for key in e.keys():
+        sql_keys+=key
+        sql_data+="'"+str(e[key])+"'"
         sql_keys+=", "
         sql_data+=", "
     sql_keys=sql_keys[:-2] # removes the final ", " 
     sql_data=sql_data[:-2]
     sql_data+=") "  
     sql_keys+=") "
-    return sql_keys+sql_data
 
-#This validates the fields and the data in d and hands back another array 
-#  of type d with only field names that match the database field names
-#  and data that is actually valid for the database field type
-#  it silently throws away fields that don't match and THIS IS IMPORTAINT
-#  it adds the SiteUUID to all records it returns, this is so we can later
-#  reconnect the entries if we need to, otherwise we lose the connection
-#  between the data.
-#  field definitions are in config
-def valid_dicts(d,field_desc): #  (array of dicts, list of valid fields)
-    dreturn = []
+    if action in ('INSERT',):
+        sql_preamble = "INSERT INTO "+table
+    if action in ('REPLACE',):
+        sql_preamble = "REPLACE INTO "+table
+    if action in ('DUPLICATE',):
+        sql_preamble = "INSERT INTO "+table
+        sql_postscript = " ON DUPLICATE KEY UPDATE "
+        for key in e.keys():
+            sql_postscript+=" %s='%s', " % (key,e[key])
+        sql_postscript=sql_postscript[:-2]
+
+    return sql_preamble+sql_keys+sql_data+sql_postscript
+
+#This accepts a date string of the form 5/6/2015 or 5/6/15
+def TryDateParse(datestring):
+    dateformats = ("%m/%d/%y","%m/%d/%Y")
+    succes = False
+    for aformat in dateformats:
+        try:
+            mydate = time.strptime(datestring,aformat)
+            succes = True
+            break
+        except:
+            pass
+    if not succes:
+        return 0
+    else:
+        return mydate
+
+# valid_dictionary - Given a dictionary d of {field_name : field_value,,,} and
+# a dictionary field_desc of {field_name : field_type,,} return a third
+# dictionary which contains only field_names in field_desc and  which contains
+# data from d that is actually valid for the database field type as described in
+# field_desc.
+
+def valid_dictionary(d,field_desc): #  (d dictionary of data, dictionary of valid fields and types)
     valid = field_desc.keys()
-
-    for record in d:  #Again with the list of dictonaries ...
-        e = {}
-        e['SiteUUID'] = record['SiteUUID'] # Everybody gets SiteUUID its how we tie things together
-        for key in record.keys():
-            if key in valid:
-                #examine and validate data in each field
-                if field_desc[key] ==  'INT':
-                    if str(record[key]) in ('x','X','1'):
-                        e[key]='1'
-                    elif str(record[key]) in ('','0'):
-                        e[key]='0'
-                    elif is_it_a_number(record[key]) in ('INT','FLOAT'):
-                        e[key]=str(record[key])
-                    else:
-                        e[key]='1'
-                        logger.warning("Warning, INT: "+str(record[key])+" converted to 1")
-                elif field_desc[key] in ('DOUBLE', 'FLOAT'):
-                    if is_it_a_number(record[key]) in ('INT','FLOAT'):
-                        e[key]=str(record[key])
-                    else:
-                        logger.warning( "Warning, FLOAT: "+str(record[key])+" wants to be a number, but cant be")
-                #elif field_desc[key]in ('DATETIME'):   # date format typicaly: 5/6/2015
-                #not implmented until we determine the case
+    e = {}
+    for key in d.keys():
+        if key in valid:
+            #examine and validate data in each field
+            if field_desc[key] ==  'INT':
+                if str(d[key]) in ('1','y','Y','x','X'):
+                    e[key]='1'
+                elif str(d[key]) in ('','0','n','N'):
+                    e[key]='0'
+                elif is_it_a_number(d[key]) in ('INT','FLOAT'):
+                    e[key]=str(d[key])
                 else:
-                    e[key]=record[key]
-        dreturn.append(e)
-    return dreturn
+                    e[key]='1'
+                    logger.warning("Warning, INT: "+str(d[key])+" converted to 1")
+            elif field_desc[key] in ('DOUBLE', 'FLOAT'):
+                if is_it_a_number(d[key]) in ('INT','FLOAT'):
+                    e[key]=str(d[key])
+                else:
+                    logger.warning( "Warning, FLOAT: "+str(d[key])+" wants to be a number, but cant be")
+            elif field_desc[key] in ('DATETIME'):  # date format typicaly: 5/6/15
+                mydate = TryDateParse(d[key])
+                if not mydate:
+                    raise ValueError("Fatal: cant write new Assessment Record")
+                    sys.exit(110)
+                    #YYYY-MM-DD HH:MM:SS
+                e[key] = time.strftime("%Y-%m-%d %H:%M:%S",mydate)
+                print "Formated Time %s" % (e[key])
+            else:
+                e[key]=d[key]
+    return e
+
+# build_query - builds a SQL search query based on the search_fiels passed
+#   to it and getting values from the dictionry record
+def build_query(record,search_fields): #Builds a SQL search query
+    c=0
+    query=""
+    for i in search_fields:
+        if record.get(i):   #.get - doesn't error if if doesn't exist
+            if c:
+                query+=" AND "
+            c+=1
+            query+=i+" = '"+record[i]+"'"
+    return query
+
+# write_record - Execute s the SQL statement typically an INSERT or REPLACE 
+#   returns >=0 if success
+#   returns -1 if failure 
+
+def write_record(s):
+    try:
+        logger.debug("SQL Statement: %s", s)
+        affected_count = cursor.execute(s)
+        mydb.commit()
+        logger.info ("Wrote %s records ",str(affected_count))
+        return cursor.lastrowid
+    except MySQLdb.IntegrityError:
+        logger.error( "failed to insert values, IntegrityError")
+        return -1
+
 
 ####################################################################################
 #
 #                                   Main
 #
 ####################################################################################
-#
-# Slurp up the csv files into an array of dicts
-#
+# Setup Logging 
 args = parser.parse_args()
-
-
-
 logger = logging.getLogger(__name__)
 
 if args.verbose == 1:
@@ -160,37 +220,11 @@ if args.verbose == 1:
 elif args.verbose > 1:
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 logger.debug("args: %s", args)
 
-filesProcessed = []
-data = []
-if args.mfiles:
-    for mfile in args.mfiles:
-    
-        logger.debug("filename: %s", mfile)
-
-        o = open(mfile,'rU')    #It will throw an error if not opened up in U mode
-        reader = csv.DictReader(o)
-        for row in reader:
-            row['SiteUUID'] = uuid.uuid4()   # Add a SiteUUID for every dict in the array according to RFC 4122, uuid4 is more secure than uuid1
-            data.append(row)
-            #logger.debug("Row %s",row)
-    filesProcessed.append(mfile)
-    logger.info("Files procesed: " + str(filesProcessed))
-#
-# Validate fields per table, only include fields that are part 
-# of this table, toss all others out
-
-SiteTbl_dicts=valid_dicts(data,config.SiteTbl_desc)
-#logger.debug("Site Dictionary: " + str(SiteTbl_dicts))
-    
-AssessmentResultsTbl_dicts=valid_dicts(data,config.AssessmentResultsTbl_desc)
-#logger.debug("Assessment Dictionary: " + str(AssessmentResultsTbl_dicts))
-
-# AuditResultsTbl Not implemented because no csv data at this time this will probably will be a seperate program
-
-# Connect to RDS 
+######################
+#   Connect to RDS 
+######################
 conn = boto.rds.connect_to_region("us-west-2")
 instances = conn.get_all_dbinstances()
 logger.debug( "Instances: " + str(instances))
@@ -202,112 +236,112 @@ logger.debug(  "Connecting to MySQL using MySQLdb: "+ "host="+endpoint+","+"user
 mydb=MySQLdb.connect(host=endpoint,user=config.db_user,passwd=config.db_password,db=config.db_name,port=port)
 cursor = mydb.cursor()
 
-def build_query(record,search_fields):
-    c=0
-    query=""
-    for i in search_fields:
-        if record.get(i):
-            if c:
-                query+=" AND "
-            c+=1
-            query+=i+" = '"+record[i]+"'"
-    return query
+# Slurp up the csv files 
 
-# Writes the record to the database
-#   takes s the SQL statement to do the insert 
-#   returns 1 if success and sets record_id to the record id written,
-#   returns 0 if failure and sets record_id = -1 
-def write_record(s,record_id):
-    try:
-        logger.debug("SQL Statement: %s", s)
-        affected_count = cursor.execute(s)
-        mydb.commit()
-        logger.info ("Wrote record: "+str(affected_count))
-        record_id = cursor.lastrowid
-        return 1
-    except MySQLdb.IntegrityError:
-        logger.error( "failed to insert values")
-        record_id = -1
-        return 0
-
-# turn list of dictionaries into SQL statement and write it for SiteTbl
-#UNDER CONSTRUCTION!
-# Ensure successful write and then get row number
-#Future: should check and see if Site exists already before writing it!
-# First Look for duplicate site records 
-# if we find it, we will correct the SiteUUID
+# into an array of dicts
+# Add a Site UUID if one doesn't exist already
 #
+# Slurp up the csv files into a dictionary one at a time
+# then look to see if the site already is in the database
+# if it is, get the SiteUUID and PK SiteId_tbl, if not assign new ones
+# Vaidate the data
+filesProcessed = []
 
+if args.mfiles:
+    for mfile in args.mfiles:
+        logger.debug("filename: %s", mfile)
+        o = open(mfile,'rU')    #It will throw an error if not opened up in U mode
+        reader = csv.DictReader(o)
+        for row in reader:
+            # Process Site Informaton
+            # Query the database and try to find a Site in the Site Table that matches this one
+            # If found get the SiteUUID and PK, if required, overwrite the Site Data
+            query = "SELECT SiteId_tbl, SiteUUID FROM SiteTbl WHERE "
+            search_fields1 =('VendorSiteLatitude', 'VendorSiteLongitude')
+            search_fields2 =('VendorName','VendorSiteName','VendorSiteAddress','VendorSiteCity','VendorSiteState','VendorSiteCountry')
+            query += "( "+build_query(row,search_fields1)+" ) OR ( "+build_query(row,search_fields2)+" )"
+            cursor.execute(query)
+            row_results = cursor.fetchone()
+            if row_results:  #We found the site, interesting fact: the SiteUUID can never be replaced, must use existing one
+                (SiteId_tbl_val, SiteUUID_val) = row_results
+                if SiteUUID_val:        # If Site previously exists, replace its UUID and PK row number in the data structure
+                    if not args.overwrite_site:
+                        logger.info("Found site has been previously defined not adding it, use --overwrite_site to override ")
+                    #Set the SiteUUID to be the UUID we found in the database and get the Primary Key
+                    logger.debug("SiteUUID was found, changing it to: %s",SiteUUID_val)
+                    row['SiteUUID'] = SiteUUID_val
+                else:
+                    raise ValueError("Fatal: cursor (database) returns value but its not SiteUUID, this is very confusing")
+                    sys.exit(10)
+                if SiteId_tbl_val:  
+                    row['SiteId_tbl'] = SiteId_tbl_val
+                    row['SiteId'] = SiteId_tbl_val
+                    logger.debug("Row Number will be : %s",SiteId_tbl_val)
+                else:
+                    raise ValueError("Fatal: cursor (database) returns value but its not SiteId_tbl, this is very confusing")
+                    sys.exit(10)
 
+                if args.overwrite_site: # The site exists, but we need to overwrite the site info
+                    logger.info( "Overwriting site info")
+                    #cpSiteTbl_desc = dict((k,v) for k,v in config.SiteTbl_desc.items())
+                    #del cpSiteTbl_desc['SiteUUID']
+                    #del cpSiteTbl_desc['SiteId']
+                    #
+                    #copy config.SiteTbl_desc here and remove SiteId_tbl_val SiteUUID
+                    s = sql_action_statement("SiteTbl","DUPLICATE",config.SiteTbl_desc,row)
+                    record_id = write_record(s) 
+                    if record_id < 0 :
+                        raise ValueError("Fatal: cant write Site Record")
+                        sys.exit(10)
+                    else:
+                        row['SiteId_tbl'] = record_id
+                        row['SiteId'] = record_id
+            else: # Site doesn't exisit in the database, create entry for site in the database in SiteTbl
+                row['SiteUUID'] = uuid.uuid4()   # Add a SiteUUID for every dict in the array according to RFC 4122, uuid4 is more secure than uuid1
+                logger.debug("creating UUID")
+                s = sql_action_statement("SiteTbl","INSERT",config.SiteTbl_desc,row)
+                record_id = write_record(s) 
+                if record_id < 0:   
+                    raise ValueError("Fatal: cant write Site Record")
+                    sys.exit(10)
+                else:
+                    row['SiteId_tbl'] = record_id
+                    row['SiteId'] = record_id
 
-for record in SiteTbl_dicts:
-    record_id=-1
-    # First look into the database and try to determine if the site already exists
-    query = "SELECT SiteId_tbl, SiteUUID FROM SiteTbl WHERE "
-    search_fields1 =('VendorSiteLatitude', 'VendorSiteLongitude')
-    search_fields2 =('VendorName','VendorSiteName','VendorSiteAddress','VendorSiteCity','VendorSiteState','VendorSiteCountry')
-    # Look and see if the site already exists, if it does don't add it again
-    # build query of site info
-    query += "( "+build_query(record,search_fields1)+" ) OR ( "+build_query(record,search_fields2)+" )"
-    previous_SiteUUID = record['SiteUUID']
+            cursor.fetchall() # Docs say you have to fetch all rows from the previous query before you do a new one 
 
-    cursor.execute(query)
-    row_results = cursor.fetchone() 
-    if row_results:
-        (SiteId_tbl_val, SiteUUID_val) = row_results
-        if SiteUUID_val:
-            # If Site previously exists, use its UUID in both tables
-            logger.info("Found site has been previously defined not adding it ")
-            #print " SiteId_tbl_val :"+str(SiteId_tbl_val)+" SiteUUID_val "+str(SiteUUID_val) 
-            
-            record['SiteUUID'] = SiteUUID_val
-            record_id = SiteId_tbl_val
-
-            # Loop through the other table(s) and update the SiteUUID and row number where appropriate
-            for record2 in AssessmentResultsTbl_dicts:
-                if str(record2['SiteUUID']) == str(previous_SiteUUID):
-                    record2['SiteUUID'] = SiteUUID_val
-                    record2['SiteId'] = SiteId_tbl_val
-        else:
-            raise Fatal_Data("Fatal: cursor returns value but its not SiteUUID, this is very confusing")
-            sys.exit(10)
-    else:
-        logger.info( "Site doesnt exist in the site table ,adding it")
-        # Site doesn't exists, so create it
-        s = sql_insert_statement("SiteTbl",record)
-        logger.debug ("SQL insert statement %s",s)
-        if write_record(s,record_id) == 0:
-            # Loop through the other table(s) and update the row number 
-            for record2 in AssessmentResultsTbl_dicts:
-                if str(record2['SiteUUID']) == str(previous_SiteUUID):
-                    record2['SiteId'] = record_id
-        else:
-            raise Fatal_Data("Fatal: cant write Site Record")
-            sys.exit(10)
-
-    cursor.fetchall() # the docs say you need to fetch all rows before doing another query ->void
-
-# Use row number above to write record below
-# turn list of dictionaries into SQL statement and write it
-# AssessmentResultsTbl
-for record in AssessmentResultsTbl_dicts:
-    #First check and see if the Assessment is already in the database
-    query = "SELECT AssessmentGUID FROM AssessmentResultsTbl WHERE "
-    search_fields = ('AssessmentGUID',)
-    query += build_query(record,search_fields)
-    logger.debug("Assessment Query: "+query)
-
-    cursor.execute(query)
-    row_results = cursor.fetchone() 
-    if row_results:
-        (AssessmentGUID) = row_results
-        logger.info("Asessment exists, not updating")
-    else:
-        s = sql_insert_statement("AssessmentResultsTbl",record)
-        if write_record(s,record_id) == 0:
-            raise Fatal_Data("Fatal: cant write Assessment Record")
-            sys.exit(11)
-    cursor.fetchall()
+            #See if the Assessment is already in the database
+            query = "SELECT AssessmentGUID FROM AssessmentResultsTbl WHERE "
+            search_fields = ('AssessmentGUID',)
+            query += build_query(row,search_fields)
+            logger.debug("Assessment Query: "+query)
+            cursor.execute(query)
+            row_results = cursor.fetchone() 
+            if row_results:
+                (AssessmentGUID) = row_results
+                if args.overwrite_assessment:
+                    logger.info("Overwriting Assessment data ...")
+                    s = sql_action_statement("AssessmentResultsTbl","DUPLICATE",config.AssessmentResultsTbl_desc,row)
+                    record_id = write_record(s)
+                    if record_id < 0:   
+                        raise ValueError("Fatal: cant overwrite Assessment Record")
+                        sys.exit(10)
+                    else:
+                        logger.info("Overwrote asessment data ...")  
+                else:
+                    logger.info("Asessment exists, not updating use --overwrite_assessment to override")
+            else:
+                logger.info("Writing new asessment data ...")            
+                s = sql_action_statement("AssessmentResultsTbl","INSERT",config.AssessmentResultsTbl_desc,row)
+                record_id =write_record(s) 
+                if record_id < 0:   
+                    raise ValueError("Fatal: cant write new Assessment Record")
+                    sys.exit(11)
+                else:
+                    logger.info("Wrote asessment data ...")  
+            cursor.fetchall() # the docs say you need to fetch all rows before doing another query ->void
+    filesProcessed.append(mfile)
+logger.info("Files procesed: " + str(filesProcessed))
 
 cursor.close()
 mydb.close()
