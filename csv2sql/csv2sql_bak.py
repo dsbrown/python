@@ -221,10 +221,10 @@ if args.mfiles:
     filesProcessed.append(mfile)
 logger.info("Files procesed: " + str(filesProcessed))
 
-# Validate fields per table, only include fields that are part 
+# Validate fields per table, only  fields that are part 
 # of this table, toss all others out
 
-SiteTbl_dicts=valid_dicts(data,config.SiteTbl_desc)
+SiteTbl_dicts=valid_dicts(data,write_record)
 #logger.debug("Site Dictionary: " + str(SiteTbl_dicts))
     
 AssessmentResultsTbl_dicts=valid_dicts(data,config.AssessmentResultsTbl_desc)
