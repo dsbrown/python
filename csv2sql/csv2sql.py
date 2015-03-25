@@ -172,7 +172,7 @@ def valid_dictionary(d,field_desc): #  (d dictionary of data, dictionary of vali
                     sys.exit(110)
                     #YYYY-MM-DD HH:MM:SS
                 e[key] = time.strftime("%Y-%m-%d %H:%M:%S",mydate)
-                print "Formated Time %s" % (e[key])
+                #print "Formated Time %s" % (e[key])
             else:
                 e[key]=d[key]
     return e
@@ -187,7 +187,7 @@ def build_query(record,search_fields): #Builds a SQL search query
             if c:
                 query+=" AND "
             c+=1
-            query+=i+" = '"+record[i]+"'"
+            query+=i+" = '"+str(record[i])+"'"
     return query
 
 # write_record - Execute s the SQL statement typically an INSERT or REPLACE 
@@ -264,7 +264,9 @@ if args.mfiles:
             row_results = cursor.fetchone()
             if row_results:  #We found the site, interesting fact: the SiteUUID can never be replaced, must use existing one
                 (SiteId_tbl_val, SiteUUID_val) = row_results
-                if SiteUUID_val:        # If Site previously exists, replace its UUID and PK row number in the data structure
+
+                 # If Site previously exists, replace its UUID  in the data structure
+                if SiteUUID_val:       
                     if not args.overwrite_site:
                         logger.info("Found site has been previously defined not adding it, use --overwrite_site to override ")
                     #Set the SiteUUID to be the UUID we found in the database and get the Primary Key
@@ -273,7 +275,9 @@ if args.mfiles:
                 else:
                     raise ValueError("Fatal: cursor (database) returns value but its not SiteUUID, this is very confusing")
                     sys.exit(10)
-                if SiteId_tbl_val:  
+
+                # If Site previously exists, replace its PK row number in the data structure SiteId for Site, SiteId_tbl for Assessment
+                if SiteId_tbl_val:   
                     row['SiteId_tbl'] = SiteId_tbl_val
                     row['SiteId'] = SiteId_tbl_val
                     logger.debug("Row Number will be : %s",SiteId_tbl_val)
@@ -281,22 +285,20 @@ if args.mfiles:
                     raise ValueError("Fatal: cursor (database) returns value but its not SiteId_tbl, this is very confusing")
                     sys.exit(10)
 
-                if args.overwrite_site: # The site exists, but we need to overwrite the site info
+                # The site exists, but we need to overwrite the site info
+                if args.overwrite_site: 
                     logger.info( "Overwriting site info")
-                    #cpSiteTbl_desc = dict((k,v) for k,v in config.SiteTbl_desc.items())
-                    #del cpSiteTbl_desc['SiteUUID']
-                    #del cpSiteTbl_desc['SiteId']
-                    #
-                    #copy config.SiteTbl_desc here and remove SiteId_tbl_val SiteUUID
                     s = sql_action_statement("SiteTbl","DUPLICATE",config.SiteTbl_desc,row)
                     record_id = write_record(s) 
                     if record_id < 0 :
                         raise ValueError("Fatal: cant write Site Record")
                         sys.exit(10)
-                    else:
-                        row['SiteId_tbl'] = record_id
-                        row['SiteId'] = record_id
-            else: # Site doesn't exisit in the database, create entry for site in the database in SiteTbl
+                    # else:
+                    #     row['SiteId_tbl'] = record_id  
+                    #     row['SiteId'] = record_id
+
+            # Site doesn't exisit in the database, create entry for site in the database in SiteTbl      
+            else: 
                 row['SiteUUID'] = uuid.uuid4()   # Add a SiteUUID for every dict in the array according to RFC 4122, uuid4 is more secure than uuid1
                 logger.debug("creating UUID")
                 s = sql_action_statement("SiteTbl","INSERT",config.SiteTbl_desc,row)
@@ -304,24 +306,51 @@ if args.mfiles:
                 if record_id < 0:   
                     raise ValueError("Fatal: cant write Site Record")
                     sys.exit(10)
-                else:
-                    row['SiteId_tbl'] = record_id
-                    row['SiteId'] = record_id
+                # else:
+                #     row['SiteId_tbl'] = record_id
+                #     row['SiteId'] = record_id
 
             cursor.fetchall() # Docs say you have to fetch all rows from the previous query before you do a new one 
 
-            #See if the Assessment is already in the database
-            query = "SELECT AssessmentGUID FROM AssessmentResultsTbl WHERE "
+            # Process Assessment Informaton
+            #
+            SiteId_tbl_val = -1 # initialize with an invalid value
+
+            # Query the database and try to find the Site mentioned actually exists in the Site Table 
+            # If found get the SiteID_tbl PK <- SiteID FK, 
+            query = "SELECT SiteId_tbl FROM SiteTbl WHERE "
+            search_fields1 =('SiteUUID',)
+            query += "( "+build_query(row,search_fields1)+" )"
+            print "Looking in Site Table for Site Info: "+query
+            cursor.execute(query)
+            row_results = cursor.fetchone()
+            if row_results:  #We found the site
+                (SiteId_tbl_val) = row_results
+            else:
+                raise ValueError("Fatal: cant find SiteUUID: "+row['SiteUUID']+" in database. You must define the Site before the assessment can be entered")
+                sys.exit(10)
+            
+            # See if the assessment is already in the database by matching the AssessmentGUID
+            # If we find a matching assessment get the primary key of the match
+            query = "SELECT idAssessmentTable FROM AssessmentResultsTbl WHERE " 
             search_fields = ('AssessmentGUID',)
-            query += build_query(row,search_fields)
-            logger.debug("Assessment Query: "+query)
+            query += str(build_query(row,search_fields))
+            logger.debug("Assessment Lookup Query: "+query)
             cursor.execute(query)
             row_results = cursor.fetchone() 
+
+            # We found an assessment that matches the AssessmentGUID
+            #
             if row_results:
-                (AssessmentGUID) = row_results
+                idAssessmentTable_val = row_results[0]
+                print "PK:"+str(idAssessmentTable_val)
+            
+                # if we are authorized to overwrite the record
                 if args.overwrite_assessment:
-                    logger.info("Overwriting Assessment data ...")
+                    row['idAssessmentTable'] = idAssessmentTable_val  #Primary Key
+                    logger.info("Overwriting Assessment data @ "+str(idAssessmentTable_val)+"s ...") 
                     s = sql_action_statement("AssessmentResultsTbl","DUPLICATE",config.AssessmentResultsTbl_desc,row)
+
                     record_id = write_record(s)
                     if record_id < 0:   
                         raise ValueError("Fatal: cant overwrite Assessment Record")
@@ -330,10 +359,14 @@ if args.mfiles:
                         logger.info("Overwrote asessment data ...")  
                 else:
                     logger.info("Asessment exists, not updating use --overwrite_assessment to override")
-            else:
+
+            # No matching asssesment, write the new one        
+            else: 
+                row['SiteId'] =  str(SiteId_tbl_val)
+                print "SiteId: "+row['SiteId']
                 logger.info("Writing new asessment data ...")            
                 s = sql_action_statement("AssessmentResultsTbl","INSERT",config.AssessmentResultsTbl_desc,row)
-                record_id =write_record(s) 
+                record_id = write_record(s) 
                 if record_id < 0:   
                     raise ValueError("Fatal: cant write new Assessment Record")
                     sys.exit(11)
