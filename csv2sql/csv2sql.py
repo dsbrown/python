@@ -21,6 +21,7 @@
 # Author: David S. Brown
 # v1.0  DSB      7 Mar 2015     Create csv2sql
 # v1.1  DSB     18 Mar 2015     Modified to be simplier, doesn't use as complex data structure
+# v1.2 DSB     25 Mar 2015     Modified to actualy work - Yea! Now meets all original requirements
 #
 ####################################################################################
 
