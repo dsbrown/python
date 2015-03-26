@@ -71,19 +71,33 @@ if len(sys.argv)==1:
 #
 ####################################################################################
 
-# is_it_a_number - Looks at a string and tries to interpret if it is an INT, FLOAT or STR
+# is_it_a_number - Looks at a string and tries to interpret if it is an TUPLE, INT, FLOAT or STR
 def is_it_a_number(text):
-    try:
-        int(text)
+    if isinstance(text, int) or isinstance(text, float) or isinstance(text, long) : 
         return 'INT'
-    except ValueError:
-        pass
-    try:
-        float(text)
-        return 'FLOAT'
-    except ValueError:
-        pass
-    return 'STR'
+    
+    if isinstance(text, (list, tuple)):
+        return 'TUPLE'
+
+    if isinstance(text, basestring):
+        try:
+            int(text)
+            return 'INT'
+        except ValueError:
+            pass
+        try:
+            long(text)
+            return 'INT'
+        except ValueError:
+            pass
+        try:
+            float(text)
+            return 'FLOAT'
+        except ValueError:
+            pass
+    else:
+        return 'STR'
+
 
 # sql_action_statement - build SQL statement to put data into table
 #   table is the SQL table to be effected
@@ -150,25 +164,31 @@ def valid_dictionary(d,field_desc): #  (d dictionary of data, dictionary of vali
     for key in d.keys():
         if key in valid:
             #examine and validate data in each field
+            type_of_var = is_it_a_number(d[key]) 
+            if type_of_var in ('TUPLE',):
+                e[key] = d[key][0]
+                logger.warning("valid_dictionary: field: "+key+" with value: "+d[key]+" is a tuple, truncated to first element")
+
             if field_desc[key] ==  'INT':
                 if str(d[key]) in ('1','y','Y','x','X'):
                     e[key]='1'
                 elif str(d[key]) in ('','0','n','N'):
                     e[key]='0'
-                elif is_it_a_number(d[key]) in ('INT','FLOAT'):
-                    e[key]=str(d[key])
+                elif type_of_var in ('INT','FLOAT'): 
+                    e[key]=d[key]
                 else:
-                    e[key]='1'
-                    logger.warning("Warning, INT: "+str(d[key])+" converted to 1")
+                    e[key]=d[key]
+                    logger.warning("Warning, INT: "+str(d[key])+" wants to be a number, but isn't drawn that way")
             elif field_desc[key] in ('DOUBLE', 'FLOAT'):
-                if is_it_a_number(d[key]) in ('INT','FLOAT'):
+                if type_of_var in ('INT','FLOAT'):
                     e[key]=str(d[key])
                 else:
-                    logger.warning( "Warning, FLOAT: "+str(d[key])+" wants to be a number, but cant be")
+                    e[key]=d[key]
+                    logger.warning( "Warning, FLOAT: "+str(d[key])+" wants to be a number, but can't be")
             elif field_desc[key] in ('DATETIME'):  # date format typicaly: 5/6/15
                 mydate = TryDateParse(d[key])
                 if not mydate:
-                    raise ValueError("Fatal: cant write new Assessment Record")
+                    raise ValueError("Fatal: can't convert date "+str(d[key])+" to date")
                     sys.exit(110)
                     #YYYY-MM-DD HH:MM:SS
                 e[key] = time.strftime("%Y-%m-%d %H:%M:%S",mydate)
@@ -253,9 +273,11 @@ if args.mfiles:
         o = open(mfile,'rU')    #It will throw an error if not opened up in U mode
         reader = csv.DictReader(o)
         for row in reader:
+            ####################################
             # Process Site Informaton
             # Query the database and try to find a Site in the Site Table that matches this one
             # If found get the SiteUUID and PK, if required, overwrite the Site Data
+            ####################################
             query = "SELECT SiteId_tbl, SiteUUID FROM SiteTbl WHERE "
             search_fields1 =('VendorSiteLatitude', 'VendorSiteLongitude')
             search_fields2 =('VendorName','VendorSiteName','VendorSiteAddress','VendorSiteCity','VendorSiteState','VendorSiteCountry')
@@ -268,7 +290,7 @@ if args.mfiles:
                  # If Site previously exists, replace its UUID  in the data structure
                 if SiteUUID_val:       
                     if not args.overwrite_site:
-                        logger.info("Found site has been previously defined not adding it, use --overwrite_site to override ")
+                        print "Found site has been previously defined not adding it, use --overwrite_site to override "
                     #Set the SiteUUID to be the UUID we found in the database and get the Primary Key
                     logger.debug("SiteUUID was found, changing it to: %s",SiteUUID_val)
                     row['SiteUUID'] = SiteUUID_val
@@ -312,8 +334,12 @@ if args.mfiles:
 
             cursor.fetchall() # Docs say you have to fetch all rows from the previous query before you do a new one 
 
+
+            ####################################
+            #
             # Process Assessment Informaton
             #
+            ####################################
             SiteId_tbl_val = -1 # initialize with an invalid value
 
             # Query the database and try to find the Site mentioned actually exists in the Site Table 
@@ -321,11 +347,11 @@ if args.mfiles:
             query = "SELECT SiteId_tbl FROM SiteTbl WHERE "
             search_fields1 =('SiteUUID',)
             query += "( "+build_query(row,search_fields1)+" )"
-            print "Looking in Site Table for Site Info: "+query
+            logger.debug("Looking in Site Table for Site Info: "+query)
             cursor.execute(query)
             row_results = cursor.fetchone()
             if row_results:  #We found the site
-                (SiteId_tbl_val) = row_results
+                SiteId_tbl_val = row_results[0]
             else:
                 raise ValueError("Fatal: cant find SiteUUID: "+row['SiteUUID']+" in database. You must define the Site before the assessment can be entered")
                 sys.exit(10)
@@ -343,7 +369,7 @@ if args.mfiles:
             #
             if row_results:
                 idAssessmentTable_val = row_results[0]
-                print "PK:"+str(idAssessmentTable_val)
+                logger.debug( "PK:"+str(idAssessmentTable_val))
             
                 # if we are authorized to overwrite the record
                 if args.overwrite_assessment:
@@ -358,16 +384,16 @@ if args.mfiles:
                     else:
                         logger.info("Overwrote asessment data ...")  
                 else:
-                    logger.info("Asessment exists, not updating use --overwrite_assessment to override")
+                    print "Assessment exists, not updating use --overwrite_assessment to override"
 
             # No matching asssesment, write the new one        
             else: 
-                row['SiteId'] =  str(SiteId_tbl_val)
-                print "SiteId: "+row['SiteId']
+                row['SiteId'] =  SiteId_tbl_val
+                logger.debug("SiteId: %d" % row['SiteId'])
                 logger.info("Writing new asessment data ...")            
                 s = sql_action_statement("AssessmentResultsTbl","INSERT",config.AssessmentResultsTbl_desc,row)
                 record_id = write_record(s) 
-                if record_id < 0:   
+                if record_id < 0:
                     raise ValueError("Fatal: cant write new Assessment Record")
                     sys.exit(11)
                 else:
