@@ -1,3 +1,7 @@
+#!/usr/local/bin/python
+# -*- coding: utf-8 -*-
+
+####################################################################################
 # columns missing
 # Short program to tell me what columns are missing from a CSV file
 #

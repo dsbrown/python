@@ -29,7 +29,6 @@ SiteTbl_desc={
   'VendorSiteCountry' : 'VARCHAR',
   'VendorSiteLatitude' : 'DOUBLE',
   'VendorSiteLongitude' : 'DOUBLE',
-  'SelectedByBiz' : 'DATETIME',
   'InProd' : 'INT',
   'InDev' : 'INT',
   'TypeEC2' : 'INT',
@@ -51,8 +50,6 @@ SiteTbl_desc={
   'SiteUUID' : 'VARCHAR',
   'VendorSitePostalCode' : 'VARCHAR'
 }
-
-
 
 AssessmentResultsTbl_desc={ 
   'SiteId' : 'INT',
@@ -99,15 +96,16 @@ AssessmentResultsTbl_desc={
   'CompScoreAIA27': 'FLOAT',
   'CompScoreAIA28': 'FLOAT',
   'CompScoreAIA33': 'FLOAT',
-  'CompositeScore': 'FLOAT',
-  'ReasonFor' : 'TEXT',
-  'ReasonAgainst' : 'TEXT',
+  'CompScoreTotal': 'FLOAT',
+  'ReasonsFor' : 'TEXT',
+  'ReasonsAgainst' : 'TEXT',
   'ShowStoppers' : 'TEXT',
   'PrelimReportDate' : 'DATETIME',
   'FinalReportDate' : 'DATETIME',
   'SiteDeliverDate' : 'DATETIME',
   'IPSGOSelect' : 'INT',
   'BizDevSelect' : 'INT',
+  'BizDevSelectDate' : 'DATETIME',
   'AssessmentGUID' : 'VARCHAR',
   'SiteUUID' : 'VARCHAR',
 }
