@@ -1,16 +1,14 @@
 # Global Settings
-# cred: /Users/browdavi/.ssh/rds-combined-ca-bundle.pem
-# 
-db_size = 15 #GB
-db_machine = 'db.t2.medium'
+db_name = "ipsgolog" # both name of RDS server and mysql database
+db_size = 5 #GB
+db_machine = 'db.m1.small'
 db_user="ipsgo"
 db_password = "unicorn1sparkles"
-db_instance= "ipsgometrics"
+db_instance= "ipsgopdxmysql"
 db_name = "CoLo_db"
 db_sg_name = 'ipsgolog'
-db_security_group = "sg-c5c8a8a0"
+db_security_group = "web_servers"
 #db_endpoint = "ipsgopdxmysql.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
-#db_endpoint = "ipsgometrics.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
 ec2_key_name = 'ipsgolog'
 ec2_security_group_name = 'ipsgolog'
 ec2_instance_type = 't1.micro'

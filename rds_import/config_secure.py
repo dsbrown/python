@@ -1,16 +1,14 @@
 # Global Settings
-# cred: /Users/browdavi/.ssh/rds-combined-ca-bundle.pem
-# 
-db_size = 15 #GB
-db_machine = 'db.t2.medium'
+db_name = "ipsgolog" # both name of RDS server and mysql database
+db_size = 5 #GB
+db_machine = 'db.m1.small'
 db_user="ipsgo"
-db_password = "unicorn1sparkles"
-db_instance= "ipsgometrics"
+db_password = "sdfghjk"
+db_instance= "ipsgopdxmysql"
 db_name = "CoLo_db"
 db_sg_name = 'ipsgolog'
-db_security_group = "sg-c5c8a8a0"
+db_security_group = "web_servers"
 #db_endpoint = "ipsgopdxmysql.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
-#db_endpoint = "ipsgometrics.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
 ec2_key_name = 'ipsgolog'
 ec2_security_group_name = 'ipsgolog'
 ec2_instance_type = 't1.micro'
@@ -31,6 +29,7 @@ SiteTbl_desc={
   'VendorSiteCountry' : 'VARCHAR',
   'VendorSiteLatitude' : 'DOUBLE',
   'VendorSiteLongitude' : 'DOUBLE',
+  'SelectedByBiz' : 'DATETIME',
   'InProd' : 'INT',
   'InDev' : 'INT',
   'TypeEC2' : 'INT',
@@ -50,8 +49,9 @@ SiteTbl_desc={
   'TypeOther' : 'INT',
   'LSEvents' : 'INT',
   'SiteUUID' : 'VARCHAR',
-  'VendorSitePostalCode' : 'VARCHAR'
 }
+
+
 
 AssessmentResultsTbl_desc={ 
   'SiteId' : 'INT',
@@ -98,18 +98,17 @@ AssessmentResultsTbl_desc={
   'CompScoreAIA27': 'FLOAT',
   'CompScoreAIA28': 'FLOAT',
   'CompScoreAIA33': 'FLOAT',
-  'CompScoreTotal': 'FLOAT',
-  'ReasonsFor' : 'TEXT',
-  'ReasonsAgainst' : 'TEXT',
+  'CompositeScore': 'FLOAT',
+  'ReasonFor' : 'TEXT',
+  'ReasonAgainst' : 'TEXT',
   'ShowStoppers' : 'TEXT',
   'PrelimReportDate' : 'DATETIME',
   'FinalReportDate' : 'DATETIME',
   'SiteDeliverDate' : 'DATETIME',
   'IPSGOSelect' : 'INT',
   'BizDevSelect' : 'INT',
-  'BizDevSelectDate' : 'DATETIME',
   'AssessmentGUID' : 'VARCHAR',
-  'SiteUUID' : 'VARCHAR',
+  'SiteUUID' : 'INT',
 }
 
 
@@ -130,33 +129,6 @@ AuditResultsTbl_desc = {
   'SiteUUID' : 'VARCHAR',
   'AuditResults' : 'TEXT',
   'AuditActions' : 'TEXT',
-}
-
-QuestionDetailTbl_desc = {
-'QuestionNo' : 'INT' ,
-'VendorResponse' : 'VARCHAR' ,
-'VendorComment' : 'VARCHAR' ,
-'VendorExtComment' : 'VARCHAR' ,
-'PrimaryCategory' : 'INT' ,
-'SecondaryCategory' : 'INT' ,
-'TeritaryCategory' : 'INT' ,
-'QuestionnairePhase' : 'INT' ,
-'Score' : 'INT' ,
-'DCEOverrideAnswer' : 'INT' ,
-'DCEOverrideRescore' : 'INT' ,
-'DCEOverrideComment' : 'INT' ,
-'DCEOverrideFlag' : 'INT' ,
-'QuestionnaireGUID' : 'VARCHAR' ,
-'AssessmentGUID' : 'VARCHAR' ,
-'MaxQuestions' : 'INT' ,
-'DocEngVersion' : 'FLOAT',
-}
-
-QuestionTbl_desc = {
-'QuestionNo' : 'INT' ,
-'QuestionText' : 'VARCHAR' ,
-'QuestionnaireGUID' : 'VARCHAR' ,
-'DocEngVersion' : 'FLOAT',
 }
 
 #This dictionary hash is used by the logging module
