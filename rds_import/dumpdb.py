@@ -42,6 +42,19 @@ while row is not None:
     print (row)
     row = cursor.fetchone()
 
+print "======================================================================"
+print "Question Table"
+query = "SELECT * FROM QuestionTbl"
+cursor.execute(query)
+print "QuestionTbl Table"
+row = cursor.fetchone()
+while row is not None:
+    print "------------------------------------------------------------------"
+    print (row)
+    row = cursor.fetchone()
+
+
+
 cursor.close()
 mydb.close()
 conn.close()
