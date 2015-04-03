@@ -64,6 +64,34 @@ if len(sys.argv)==1:
 #
 ####################################################################################
 
+#  "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)"
+def dbwrite(table, **kwargs) :
+    prefix = "INSERT INTO %s " % table
+    s = "( "
+    data = ()
+    postfix = "VALUES ("
+    for i in kwargs.keys():
+        s += "%s," % i
+        postfix += "%s,"
+        data += (kwargs[i],) 
+    s=s[:-1] # removes the final ", " 
+    postfix=postfix[:-1] + ")" # removes the final ", " 
+    s += ") "
+    s = prefix + s + postfix
+ 
+    try:
+        print ("SQL Statement: %s", s)
+        affected_count = cursor.execute(s, data)
+        mydb.commit()
+        print ("Wrote %s records ",str(affected_count))
+        return affected_count
+
+    except MySQLdb.Error, e:
+        print ( "dbwrite: Error failed to write %d: %s" , e.args[0], e.args[1])
+        sys.exit (10)
+
+    
+
 
 ####################################################################################
 #
@@ -177,17 +205,20 @@ if args.mfiles:
                     sys.exit (11)
                 
             else:                           # Question doesn't exisit in the database add it 
-                s = "INSERT INTO QuestionTbl (QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s)"
-                try:
-                    logger.debug("SQL INSERT Statement: %s [%s,%s,%s,%s]", s,common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
-                    record_id = cursor.execute(s, ( common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)) 
+                record_id = dbwrite( "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
 
-                except MySQLdb.Error, e:
-                    logger.warning( "Error failed to insert new record %d: %s" , e.args[0], e.args[1])
-                    sys.exit(11)
+                # s = "INSERT INTO QuestionTbl (QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s)"
+                # try:
+                #     logger.debug("SQL INSERT Statement: %s [%s,%s,%s,%s]", s,common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
+                #     record_id = cursor.execute(s, ( common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)) 
+
+                # except MySQLdb.Error, e:
+                #     logger.warning( "Error failed to insert new record %d: %s" , e.args[0], e.args[1])
+                #     sys.exit(11)
 
             # record_id: I am not sure about what is getting returned in  record_id. I think it is > 0 if sucessful - need to verify
             mydb.commit()
+            print "wrote: %s" % record_count
             record_count+=record_id
             #if args.verbose == 1 and record_count % 10 == 0:
             #    print ".",
