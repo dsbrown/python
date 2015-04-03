@@ -49,7 +49,7 @@ cursor.execute(query)
 print "QuestionTbl Table"
 row = cursor.fetchone()
 while row is not None:
-    print "------------------------------------------------------------------"
+    #print "------------------------------------------------------------------"
     print (row)
     row = cursor.fetchone()
 
