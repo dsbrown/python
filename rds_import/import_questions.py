@@ -64,72 +64,6 @@ if len(sys.argv)==1:
 #
 ####################################################################################
 
-# sql_action_statement - build SQL statement to put data into table
-#   table is the SQL table to be effected
-#   d data is a dictionary hash, walk through it and build SQL statement
-#   action is 'INSERT' or 'REPLACE' depending on the desired side effect
-#   INSERT is for new entries and will error if the entry exists
-#   REPLACE will UPDATE an existing entry by replacing all matching fields
-#sql_action_statement("SiteTbl","REPLACE",config.SiteTbl_desc,row)
-def create_sql_statement(table,action,d,pk):
-
-    sql_preamble = ""
-    sql_postscript = ""
-    sql_keys =" ( "
-    sql_data = " Values (" 
-    for key in d.keys():
-        sql_keys+=key
-        sql_data+="'%s'" % d[key]
-        sql_keys+=", "
-        sql_data+=", "
-    sql_keys=sql_keys[:-2] # removes the final ", " 
-    sql_data=sql_data[:-2]
-    sql_data+=") "  
-    sql_keys+=") "
-
-    if action in ('INSERT',):
-        sql_preamble = "INSERT INTO "+table
-    if action in ('REPLACE',):
-        sql_preamble = "REPLACE INTO "+table
-    if action in ('DUPLICATE',):
-        sql_preamble = "INSERT INTO "+table
-        sql_postscript = " ON DUPLICATE KEY UPDATE "
-        for key in d.keys():
-            sql_postscript+=" %s='%s', " % (key,d[key])
-        sql_postscript=sql_postscript[:-2]
-
-    return sql_preamble+sql_keys+sql_data+sql_postscript
-
-# build_query - builds a SQL search query based on the search_fiels passed
-#   to it and getting values from the dictionry record
-def build_query(record, search_fields): #Builds a SQL search query
-    c=0
-    query=""
-    for i in search_fields:
-        print "building query: %s"%str(record[i])
-        if record.get(i):   #.get - doesn't error if if doesn't exist
-            print "record has: %s"%str(record[i])
-            if c:
-                query+=" AND "
-            c+=1
-            query+=i+" = '"+str(record[i])+"'"
-    return query
-
-# write_record - Execute s the SQL statement typically an INSERT or REPLACE 
-#   returns >=0 if success
-#   returns -1 if failure 
-
-def write_record(s, *args):
-    try:
-        logger.debug("SQL Statement: %s", s)
-        affected_count = cursor.execute(s,args)
-        mydb.commit()
-        logger.info ("Wrote %d records ",affected_count)
-        return cursor.lastrowid
-    except MySQLdb.IntegrityError:
-        logger.error( "failed to insert values, IntegrityError")
-        return -1
-
 
 ####################################################################################
 #
@@ -176,6 +110,7 @@ filesProcessed = []
 questions = {}    # put all question text in a dictionary one for each record keyed on question number
 question_pk = {}
 common = {}
+record_count = 0
 
 if args.mfiles:
     for mfile in args.mfiles:
@@ -191,12 +126,10 @@ if args.mfiles:
                 try:
                     number = int(element.split("_")[1])
                 except ValueError:
-                    print "Found %s but expected Question_" % element
-
-                #logger.debug("%s: %s", number, row[element])
+                    logger.warning("Found %s but expected Question_", element)
                 questions[number] = row[element]
 
-        print "QuestionnaireGUID: %s DocEngVersion: %s" % (common['QuestionnaireGUID'], common['DocEngVersion'])
+        logger.debug("QuestionnaireGUID: %s DocEngVersion: %s", common['QuestionnaireGUID'], common['DocEngVersion'])
 
         # Query the database and try to find the QuestionNo and QuestionnaireGUID in the QuestionTbl that matches 
         # New found knowledge, the statment: 
@@ -208,74 +141,40 @@ if args.mfiles:
 
 
         query = "SELECT idQuestionTbl, QuestionNo FROM QuestionTbl WHERE QuestionnaireGUID = %s"
-        #search_field =('QuestionnaireGUID',)
-        #query += "( "+build_query(common,search_field)+" )"
-        #print query
         cursor.execute(query,common['QuestionnaireGUID'])
-        #print "SQL Query: %s" % query
         row_results = cursor.fetchall()
-        #print row_results
         for (idQuestionTbl, QuestionNo) in row_results:
-            #print "found previous entry [%s]" % idQuestionTbl 
             question_pk[QuestionNo] = idQuestionTbl
-        
-        #for i in question_pk.keys():
-        #    print "Question %d with key %d" %(i,question_pk[i])
-
+  
         # Now write to the database
         for q_no in questions.keys():
-            # alrighty, here is the problem the csv file has some strange encodings that no amount of normal wacking can fix
+            # alrighty, here is a problem, the csv file has some strange encodings that no amount of normal wacking can fix
             # this little incantation does fix it, the key is unidecode, but the conversions are also necessary to avoid an error
             qtext = unidecode(questions[q_no].decode("cp1250"))
             qstext=qtext.encode("latin-1","ignore")
             escaped = mydb.escape_string(qstext) #this seems odd, but it does work use the connector not an internal call because well known error
 
-            print "Question Number: %s with primary key: %s" %(q_no,question_pk.get(q_no))
+            logger.debug( "Question Number: %s with primary key: %s",q_no,question_pk.get(q_no) )
             if question_pk.get(q_no):       # If the question was previously in database we need to overwrite it .get doesn't throw a key error
-                #print "Found it in the database"
-                # d['idQuestionTbl'] = question_pk[q_no]
-
-                #s = "REPLACE INTO QuestionTbl ( idQuestionTbl, QuestionnaireGUID , DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE %s=%s, %s=%s,%s=%s, %s=%s,%s=%s "
-                #s = "REPLACE INTO QuestionTbl ( idQuestionTbl, QuestionnaireGUID , DocEngVersion, QuestionNo, QuestionText) \
-                #  Values (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE %s=%s"
+                
                 sd = "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" 
                 try:
-                    print "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" % ((question_pk[q_no],) )
+                    logger.debug( "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" ,question_pk[q_no] )
                     record_id = cursor.execute(sd, (question_pk[q_no]) )
 
                 except MySQLdb.Error, e:
-                    print "Error failed to delete %d: %s" % (e.args[0], e.args[1])
+                    logger.warning( "Error failed to delete %d: %s" , e.args[0], e.args[1])
                     sys.exit (10)
 
                 si = "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)"
                 try:
-                    print "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)" % ( question_pk.get(q_no),common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
+                    logger.debug( "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)", \
+                        question_pk.get(q_no),common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
                     record_id = cursor.execute(si, ( question_pk.get(q_no),common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)) 
 
                 except MySQLdb.Error, e:
-                    print "Error failed to replace, (insert after delete) %d: %s" % (e.args[0], e.args[1])
-                    sys.exit (10)
-
-                    #logger.debug("SQL REPLACE Statement: %s [%s,%s,%s,%s]", s,common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
-                    #record_id = cursor.execute(s, (question_pk[q_no], common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped, "idQuestionTbl", question_pk[q_no], \
-                    #    "QuestionnaireGUID", common['QuestionnaireGUID'], "DocEngVersion", common['DocEngVersion'],  "QuestionNo", q_no,  "QuestionText",     escaped) )
-                    #record_id = cursor.execute(s, (question_pk[q_no], common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped, "idQuestionTbl", question_pk[q_no], ))
-                    #print(s) % (question_pk[q_no], common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped, "idQuestionTbl", question_pk[q_no], "QuestionnaireGUID", \
-                     #   common['QuestionnaireGUID'], "DocEngVersion", common['DocEngVersion'],  "QuestionNo", q_no,  "QuestionText",     escaped) 
-
-
-
-                    #print "REPLACE INTO QuestionTbl ( idQuestionTbl, QuestionnaireGUID , DocEngVersion, QuestionNo, QuestionText) \
-                    #Values (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE %s=%s, %s=%s,%s=%s, %s=%s,%s=%s " % mydb.literal ((question_pk[q_no], \
-                    #common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped, "idQuestionTbl", question_pk[q_no], \
-                    #"QuestionnaireGUID", common['QuestionnaireGUID'], "DocEngVersion", common['DocEngVersion'],  "QuestionNo", q_no,  "QuestionText",     escaped))
-
-
-#print "insert into table VALUES ( %s, %s, %s )" % db.literal((5, "ab'c", None))
-#insert into table VALUES ( 5, 'ab\\'c', NULL )
-
-
-                
+                    logger.warning( "Error failed to replace, (insert after delete) %d: %s", e.args[0], e.args[1])
+                    sys.exit (11)
                 
             else:                           # Question doesn't exisit in the database add it 
                 s = "INSERT INTO QuestionTbl (QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s)"
@@ -284,13 +183,16 @@ if args.mfiles:
                     record_id = cursor.execute(s, ( common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)) 
 
                 except MySQLdb.Error, e:
-                    print "Error failed to insert new record %d: %s" % (e.args[0], e.args[1])
+                    logger.warning( "Error failed to insert new record %d: %s" , e.args[0], e.args[1])
                     sys.exit(11)
 
             # record_id: I am not sure about what is getting returned in  record_id. I think it is > 0 if sucessful - need to verify
             mydb.commit()
-            logger.info ("Wrote %d records ",record_id)
+            record_count+=record_id
+            #if args.verbose == 1 and record_count % 10 == 0:
+            #    print ".",
     filesProcessed.append(mfile)
+logger.info ("Wrote %d records ",record_count)
 logger.info("Files procesed: " + str(filesProcessed))
 
 cursor.close()
