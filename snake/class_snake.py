@@ -48,6 +48,11 @@ class Reptile(object):
             return "%s is an uknown %s reptile from %s it has %s legs, its about %s cm or meters or miles i am not sure" \
                 % (self.name, self.color, self.location, self.legs, self.size)
 
+
+    def __str__(self):
+        return self.__repr__()
+
+
     # Classmethod is a function decorator specified by using @classmethod before
     # "def." It is a combination of an instance, and static, method. It can be
     # called either way. It is useful when you need to create a function that deals
@@ -72,10 +77,6 @@ class Reptile(object):
     def connect():
         global CONNECTED
         CONNECTED = True
-
-    def __str__(self):
-        return self.__repr__()
-
 
     # Property
     # A property gets and sets a value. A property can be assigned like a variable.
