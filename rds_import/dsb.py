@@ -4,7 +4,7 @@ import config  # Global Settings
 import boto.rds
 import MySQLdb
 
-def dbconnect(aws_region,db_instance,db_user,db_password,db_name ):
+def dbconnect(aws_region,db_instance,db_user,db_password,db_name):
     conn = boto.rds.connect_to_region(aws_region)
     instances = conn.get_all_dbinstances()
     #logger.debug( "Instances: " + str(instances))
@@ -20,7 +20,6 @@ def dbcursor(mydb):
     cursor = mydb.cursor()
     cursor.execute("SET NAMES 'utf8'") # forces connection to UTF-8
     return(cursor)
-
 
 def dbwrite(cursor, table, **kwargs) :
     prefix = "INSERT INTO %s " % table
@@ -46,7 +45,6 @@ def dbwrite(cursor, table, **kwargs) :
         print ( "dbwrite: Error failed to write %d: %s" , e.args[0], e.args[1])
         sys.exit (10)
 
-
 # DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" 
 def dbdelete(cursor, table, **kwargs) :
     prefix = "DELETE FROM %s WHERE " % table
@@ -67,8 +65,7 @@ def dbdelete(cursor, table, **kwargs) :
 
     except MySQLdb.Error, e:
         print ( "dbwrite: Error failed to write %d: %s" , e.args[0], e.args[1])
-        sys.exit (10)
-
+        sys.exit (10)`
 
 # SELECT idQuestionTbl, QuestionNo FROM QuestionTbl WHERE QuestionnaireGUID = %s"
 def dbselect(cursor, table, *columns, **kwargs) :

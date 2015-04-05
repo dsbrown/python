@@ -19,10 +19,8 @@ def dbwrite(table, **kwargs) :
     postfix=postfix[:-1] + ")" # removes the final ", " 
     s += ") "
     s = prefix + s + postfix
+  
 
-
-
-    print "SQL Statement: %s" % s, data
 
 escaped = "Foo bar my flop flip"
 d = {"QuestionTbl": 14, 'fooQuestion': 7, 'DocEngVersion': 'q_no' , 'QuestionNo': 71 , 'QuestionText' : escaped }
