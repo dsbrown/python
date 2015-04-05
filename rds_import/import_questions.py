@@ -23,6 +23,7 @@ import argparse
 import sys
 import csv
 import config  # Global Settings
+import dsb
 import boto.rds
 import MySQLdb
 import time
@@ -64,35 +65,6 @@ if len(sys.argv)==1:
 #
 ####################################################################################
 
-#  "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)"
-def dbwrite(table, **kwargs) :
-    prefix = "INSERT INTO %s " % table
-    s = "( "
-    data = ()
-    postfix = "VALUES ("
-    for i in kwargs.keys():
-        s += "%s," % i
-        postfix += "%s,"
-        data += (kwargs[i],) 
-    s=s[:-1] # removes the final ", " 
-    postfix=postfix[:-1] + ")" # removes the final ", " 
-    s += ") "
-    s = prefix + s + postfix
- 
-    try:
-        print ("SQL Statement: %s", s)
-        affected_count = cursor.execute(s, data)
-        mydb.commit()
-        print ("Wrote %s records ",str(affected_count))
-        return affected_count
-
-    except MySQLdb.Error, e:
-        print ( "dbwrite: Error failed to write %d: %s" , e.args[0], e.args[1])
-        sys.exit (10)
-
-    
-
-
 ####################################################################################
 #
 #                                   Main
@@ -109,21 +81,9 @@ elif args.verbose > 1:
 
 logger.debug("args: %s", args)
 
-######################
 #   Connect to RDS 
-######################
-conn = boto.rds.connect_to_region("us-west-2")
-instances = conn.get_all_dbinstances()
-logger.debug( "Instances: " + str(instances))
-instance = conn.get_all_dbinstances(config.db_instance)
-db = instance[0]
-endpoint,port = db.endpoint
-logger.debug(  "endpoint [" + str(endpoint) + " " + str(port) + "]")
-logger.debug(  "Connecting to MySQL using MySQLdb: "+ "host="+endpoint+","+"user="+config.db_user+","+"passwd="+config.db_password+","+"db="+config.db_name+","+"port="+str(port) )
-mydb=MySQLdb.connect(host=endpoint,user=config.db_user,passwd=config.db_password,db=config.db_name,port=port)
-cursor = mydb.cursor()
-result = cursor.execute("SET NAMES 'utf8'") # forces connection to UTF-8
-
+(conn,mydb) = dsb.dbconnect(config.aws_region,config.db_instance,config.db_user,config.db_password,config.db_name)
+cursor = dsb.dbcursor(mydb)
 
 # Slurp up the csv files 
 
@@ -139,6 +99,7 @@ questions = {}    # put all question text in a dictionary one for each record ke
 question_pk = {}
 common = {}
 record_count = 0
+csv_count = 0
 
 if args.mfiles:
     for mfile in args.mfiles:
@@ -156,9 +117,10 @@ if args.mfiles:
                 except ValueError:
                     logger.warning("Found %s but expected Question_", element)
                 questions[number] = row[element]
+                csv_count += 1
 
         logger.debug("QuestionnaireGUID: %s DocEngVersion: %s", common['QuestionnaireGUID'], common['DocEngVersion'])
-
+        logger.info("File: %s, found %s rows" % ( mfile,csv_count))
         # Query the database and try to find the QuestionNo and QuestionnaireGUID in the QuestionTbl that matches 
         # New found knowledge, the statment: 
         #           SELECT * FROM QuestionTbl WHERE  DocEngVersion = '2.32' 
@@ -167,10 +129,8 @@ if args.mfiles:
         # Does, go figure, well actually I did; but I did't get it to work so I dropped from the search
         # since it is 100% useless to add it to the search 
 
-
-        query = "SELECT idQuestionTbl, QuestionNo FROM QuestionTbl WHERE QuestionnaireGUID = %s"
-        cursor.execute(query,common['QuestionnaireGUID'])
-        row_results = cursor.fetchall()
+        curs = dsb.dbselect(cursor, "QuestionTbl", 'idQuestionTbl', 'QuestionNo', QuestionnaireGUID=common['QuestionnaireGUID'] )
+        row_results = curs.fetchall()
         for (idQuestionTbl, QuestionNo) in row_results:
             question_pk[QuestionNo] = idQuestionTbl
   
@@ -186,42 +146,15 @@ if args.mfiles:
             if question_pk.get(q_no):       # If the question was previously in database we need to overwrite it .get doesn't throw a key error
                 
                 sd = "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" 
-                try:
-                    logger.debug( "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" ,question_pk[q_no] )
-                    record_id = cursor.execute(sd, (question_pk[q_no]) )
+                delete_id = dsb.dbdelete(cursor, 'QuestionTbl',idQuestionTbl=question_pk.get(q_no))
+                record_id = dsb.dbwrite( cursor, "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
+            else:                           
+                # Question doesn't exisit in the database add it 
+                record_id = dsb.dbwrite( cursor, "QuestionTbl", QuestionNo = q_no, QuestionText=escaped, **common )
 
-                except MySQLdb.Error, e:
-                    logger.warning( "Error failed to delete %d: %s" , e.args[0], e.args[1])
-                    sys.exit (10)
-
-                si = "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)"
-                try:
-                    logger.debug( "INSERT INTO QuestionTbl (idQuestionTbl, QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s,%s)", \
-                        question_pk.get(q_no),common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
-                    record_id = cursor.execute(si, ( question_pk.get(q_no),common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)) 
-
-                except MySQLdb.Error, e:
-                    logger.warning( "Error failed to replace, (insert after delete) %d: %s", e.args[0], e.args[1])
-                    sys.exit (11)
-                
-            else:                           # Question doesn't exisit in the database add it 
-                record_id = dbwrite( "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
-
-                # s = "INSERT INTO QuestionTbl (QuestionnaireGUID, DocEngVersion, QuestionNo, QuestionText)  Values (%s,%s,%s,%s)"
-                # try:
-                #     logger.debug("SQL INSERT Statement: %s [%s,%s,%s,%s]", s,common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)
-                #     record_id = cursor.execute(s, ( common['QuestionnaireGUID'], common['DocEngVersion'], q_no, escaped)) 
-
-                # except MySQLdb.Error, e:
-                #     logger.warning( "Error failed to insert new record %d: %s" , e.args[0], e.args[1])
-                #     sys.exit(11)
-
-            # record_id: I am not sure about what is getting returned in  record_id. I think it is > 0 if sucessful - need to verify
             mydb.commit()
-            print "wrote: %s" % record_count
             record_count+=record_id
-            #if args.verbose == 1 and record_count % 10 == 0:
-            #    print ".",
+
     filesProcessed.append(mfile)
 logger.info ("Wrote %d records ",record_count)
 logger.info("Files procesed: " + str(filesProcessed))

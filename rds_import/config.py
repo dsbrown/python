@@ -1,6 +1,7 @@
 # Global Settings
 # cred: /Users/browdavi/.ssh/rds-combined-ca-bundle.pem
 # 
+aws_region = 'us-west-2'
 db_size = 15 #GB
 db_machine = 'db.t2.medium'
 db_user="ipsgo"
