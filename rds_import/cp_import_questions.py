@@ -85,7 +85,7 @@ logger.debug("args: %s", args)
 
 mydb = Dsb_rds()
 mydb.dbconnect()
-mydb.db_create_cursor()
+mydb.dbcursor()
 
 # Slurp up the csv files 
 
@@ -130,10 +130,9 @@ if args.mfiles:
         #           SELECT * FROM QuestionTbl WHERE  DocEngVersion > '2.3'
         # Does, go figure, well actually I did; but I did't get it to work so I dropped from the search
         # since it is 100% useless to add it to the search 
-
-        mydb.dbselect( "QuestionTbl", 'idQuestionTbl', 'QuestionNo', QuestionnaireGUID=common['QuestionnaireGUID'] )
-
-        row_results = mydb.db_cursor().fetchall()
+working one cursor here 
+        curs = mydb.dbselect( "QuestionTbl", 'idQuestionTbl', 'QuestionNo', QuestionnaireGUID=common['QuestionnaireGUID'] )
+        row_results = curs.fetchall()
         for (idQuestionTbl, QuestionNo) in row_results:
             question_pk[QuestionNo] = idQuestionTbl
   
@@ -149,11 +148,11 @@ if args.mfiles:
             if question_pk.get(q_no):       # If the question was previously in database we need to overwrite it .get doesn't throw a key error
                 
                 sd = "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" 
-                delete_id = mydb.dbdelete('QuestionTbl',idQuestionTbl=question_pk.get(q_no))
-                record_id = mydb.dbwrite( "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
+                delete_id = dsb.dbdelete(cursor, 'QuestionTbl',idQuestionTbl=question_pk.get(q_no))
+                record_id = dsb.dbwrite( cursor, "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
             else:                           
                 # Question doesn't exisit in the database add it 
-                record_id = mydb.dbwrite( cursor, "QuestionTbl", QuestionNo = q_no, QuestionText=escaped, **common )
+                record_id = dsb.dbwrite( cursor, "QuestionTbl", QuestionNo = q_no, QuestionText=escaped, **common )
 
             mydb.commit()
             record_count+=record_id
@@ -162,5 +161,6 @@ if args.mfiles:
 logger.info ("Wrote %d records ",record_count)
 logger.info("Files procesed: " + str(filesProcessed))
 
+cursor.close()
 mydb.close()
-
+conn.close()
