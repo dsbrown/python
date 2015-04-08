@@ -24,7 +24,7 @@ import sys
 import csv
 import config  # Global Settings
 from dsb_rds import *
-import boto.rds
+#import boto.rds
 import MySQLdb
 import time
 from unidecode import unidecode # $ pip install unidecode
@@ -83,9 +83,9 @@ logger.debug("args: %s", args)
 
 #   Connect to RDS 
 
-mydb = Dsb_rds()
-mydb.dbconnect()
-mydb.db_create_cursor()
+mydb = DsbRds()
+mydb.connect()
+mydb.create_cursor()
 
 # Slurp up the csv files 
 
@@ -131,9 +131,9 @@ if args.mfiles:
         # Does, go figure, well actually I did; but I did't get it to work so I dropped from the search
         # since it is 100% useless to add it to the search 
 
-        mydb.dbselect( "QuestionTbl", 'idQuestionTbl', 'QuestionNo', QuestionnaireGUID=common['QuestionnaireGUID'] )
+        mydb.select( "QuestionTbl", 'idQuestionTbl', 'QuestionNo', QuestionnaireGUID=common['QuestionnaireGUID'] )
 
-        row_results = mydb.db_cursor().fetchall()
+        row_results = mydb.get_cursor().fetchall()
         for (idQuestionTbl, QuestionNo) in row_results:
             question_pk[QuestionNo] = idQuestionTbl
   
@@ -148,12 +148,13 @@ if args.mfiles:
             logger.debug( "Question Number: %s with primary key: %s",q_no,question_pk.get(q_no) )
             if question_pk.get(q_no):       # If the question was previously in database we need to overwrite it .get doesn't throw a key error
                 
-                sd = "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" 
-                delete_id = mydb.dbdelete('QuestionTbl',idQuestionTbl=question_pk.get(q_no))
-                record_id = mydb.dbwrite( "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
+                # "DELETE FROM QuestionTbl WHERE idQuestionTbl=%s" 
+                logger.debug("entry with key  %s exists, deleting and adding", question_pk.get(q_no))
+                delete_id = mydb.delete('QuestionTbl',idQuestionTbl=question_pk.get(q_no))
+                record_id = mydb.write( "QuestionTbl", idQuestionTbl = question_pk.get(q_no), QuestionNo = q_no, QuestionText=escaped, **common )
             else:                           
                 # Question doesn't exisit in the database add it 
-                record_id = mydb.dbwrite( cursor, "QuestionTbl", QuestionNo = q_no, QuestionText=escaped, **common )
+                record_id = mydb.write( "QuestionTbl", QuestionNo = q_no, QuestionText=escaped, **common )
 
             mydb.commit()
             record_count+=record_id
