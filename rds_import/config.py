@@ -134,6 +134,8 @@ AuditResultsTbl_desc = {
 }
 
 QuestionDetailTbl_desc = {
+'QId' : 'INT' ,
+'AssessmentResultsIdx' : 'INT' ,
 'QuestionNo' : 'INT' ,
 'VendorResponse' : 'VARCHAR' ,
 'VendorComment' : 'VARCHAR' ,
