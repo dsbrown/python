@@ -1,0 +1,7 @@
+SiteId_tbl,ClusterName,ClusterID,ProjectName,AWSSiteCode,VendorName,VendorSiteName,VendorSiteCity,VendorSiteState,SiteUUID
+1,McMurdo,MMDS,Penguin Tale,,Frozen Colo LLC,Chilly Willy 1,McMurdo Station,Antarctica,caa0c9ea-6789-4aa9-87b0-ffd993a21619
+2,Casey Station,MMDS,Penguin Tale,,BBC Colo LLC,Chilly Willy 1,Casey Station,Antarctica,f77e9ca1-641d-448b-94e7-fc0a2069f65b
+3,Professor Julio Escudero Base,MMDS,Penguin Tale,,Soland Colo LLC,Julio Escudero,Escudero Base,Antarctica,9c6ecd5e-ded5-4da4-8bea-1a2b4bee7cc8
+4,Rothera Research Station,MMDS,Penguin Tale,,Ice Colo LLC,Rothera Research,Rothera Station,Antarctica,3c25a91c-122d-4ac7-8102-da6e3865758f
+5,Tor Station,MMDS,Penguin Tale,,Nord Colo LLC,Tor LLC,Tor Station,Antarctica,4a2373fd-e47f-4ae9-ba79-fa41b8fd5b67
+6,Wasa Research Station,MMDS,Penguin Tale,,Walken Colo LLC,Wasa PLCC,Wasa Station,Antarctica,658f8e7a-3187-43c5-b3d6-4bbdaa43656f
