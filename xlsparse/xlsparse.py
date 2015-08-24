@@ -71,7 +71,7 @@ if (args.debug >= 1) or (args.verbose >=1):
 	print("Using:{}".format(sheet))
 
 # read a row
-print "Header of worksheet (" + args.wsheet + "): " + str(sheet.row_values(0))
+print "Header of worksheet (" + args.wsheet + "): %s" % str(sheet.row_values(0)
 
 # read a cell
 cell = sheet.cell(0,0)
