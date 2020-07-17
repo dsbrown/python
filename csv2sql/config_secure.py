@@ -1,16 +1,16 @@
 # Global Settings
-db_name = "ipsgolog" # both name of RDS server and mysql database
+db_name = "log" # both name of RDS server and mysql database
 db_size = 5 #GB
 db_machine = 'db.m1.small'
-db_user="ipsgo"
+db_user=""
 db_password = "sdfghjk"
-db_instance= "ipsgopdxmysql"
+db_instance= "pdxmysql"
 db_name = "CoLo_db"
-db_sg_name = 'ipsgolog'
+db_sg_name = 'log'
 db_security_group = "web_servers"
-#db_endpoint = "ipsgopdxmysql.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
-ec2_key_name = 'ipsgolog'
-ec2_security_group_name = 'ipsgolog'
+#db_endpoint = "pdxmysql.cld9sdiplb4g.us-west-2.rds.com:3306"
+ec2_key_name = 'log'
+ec2_security_group_name = 'log'
 ec2_instance_type = 't1.micro'
 ec2_ami = '?????'
 
@@ -57,7 +57,7 @@ AssessmentResultsTbl_desc={
   'SiteId' : 'INT',
   'idAssessmentTable' : 'INT',
   'VendorSiteVisitDate' :  'DATETIME',
-  'IPSGOEngineer' : 'VARCHAR',
+  'Engineer' : 'VARCHAR',
   'BizDevRepresentative' : 'VARCHAR',
   'Ph1ScoreTotal': 'FLOAT',
   'Ph1ScoreAIA02': 'FLOAT',
@@ -105,7 +105,7 @@ AssessmentResultsTbl_desc={
   'PrelimReportDate' : 'DATETIME',
   'FinalReportDate' : 'DATETIME',
   'SiteDeliverDate' : 'DATETIME',
-  'IPSGOSelect' : 'INT',
+  'Select' : 'INT',
   'BizDevSelect' : 'INT',
   'AssessmentGUID' : 'VARCHAR',
   'SiteUUID' : 'INT',

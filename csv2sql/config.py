@@ -1,18 +1,19 @@
 # Global Settings
 # cred: /Users/browdavi/.ssh/rds-combined-ca-bundle.pem
 # 
+aws_region = 'us-west-2'
 db_size = 15 #GB
 db_machine = 'db.t2.medium'
-db_user="ipsgo"
+db_user="test"
 db_password = "unicorn1sparkles"
-db_instance= "ipsgometrics"
+db_instance= "testmetrics"
 db_name = "CoLo_db"
-db_sg_name = 'ipsgolog'
+db_sg_name = 'testlog'
 db_security_group = "sg-c5c8a8a0"
-#db_endpoint = "ipsgopdxmysql.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
-#db_endpoint = "ipsgometrics.cld9sdiplb4g.us-west-2.rds.amazonaws.com:3306"
-ec2_key_name = 'ipsgolog'
-ec2_security_group_name = 'ipsgolog'
+#db_endpoint = "testpdxmysql.cld9sdiplb4g.us-west-2.rds.foobar.com:3306"
+#db_endpoint = "testmetrics.cld9sdiplb4g.us-west-2.rds.foobar.com:3306"
+ec2_key_name = 'testlog'
+ec2_security_group_name = 'testlog'
 ec2_instance_type = 't1.micro'
 ec2_ami = '?????'
 
@@ -57,7 +58,7 @@ AssessmentResultsTbl_desc={
   'SiteId' : 'INT',
   'idAssessmentTable' : 'INT',
   'VendorSiteVisitDate' :  'DATETIME',
-  'IPSGOEngineer' : 'VARCHAR',
+  'testEngineer' : 'VARCHAR',
   'BizDevRepresentative' : 'VARCHAR',
   'Ph1ScoreTotal': 'FLOAT',
   'Ph1ScoreAIA02': 'FLOAT',
@@ -105,7 +106,7 @@ AssessmentResultsTbl_desc={
   'PrelimReportDate' : 'DATETIME',
   'FinalReportDate' : 'DATETIME',
   'SiteDeliverDate' : 'DATETIME',
-  'IPSGOSelect' : 'INT',
+  'testSelect' : 'INT',
   'BizDevSelect' : 'INT',
   'BizDevSelectDate' : 'DATETIME',
   'AssessmentGUID' : 'VARCHAR',
@@ -133,6 +134,8 @@ AuditResultsTbl_desc = {
 }
 
 QuestionDetailTbl_desc = {
+'QId' : 'INT' ,
+'AssessmentResultsIdx' : 'INT' ,
 'QuestionNo' : 'INT' ,
 'VendorResponse' : 'VARCHAR' ,
 'VendorComment' : 'VARCHAR' ,

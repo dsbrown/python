@@ -6,7 +6,7 @@ from pandas import DataFrame, Series
 import pandas as pd
 
 
-url="http://ipsdatasciencemetrics-1a-i-3fb2431f.us-east-1.amazon.com:1080/rack_down_alarms"
+url="http://ipsdatasciencemetrics-1a-i-3fb2431f.us-east-1.com:1080/rack_down_alarms"
 fil = pd.read_csv(url, sep='\t')
 fil['Counter'] = 1
 
